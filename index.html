@@ -209,7 +209,235 @@ footer{border-top:1px solid #282828;padding:25px 0 35px;text-align:center;color:
     const lines=cart.map(x=>`• ${x.name} — ${x.ml} ml × ${x.qty}: RD$${(x.price*x.qty).toLocaleString("es-DO")}`);
     const message=["¡Hola Aromas Art! Quiero realizar este pedido:","",...lines,"","TOTAL: RD$"+total.toLocaleString("es-DO"),"", "Nombre: "+(name||"Pendiente"),"Teléfono: "+(phone||"Pendiente"),...(email?["Correo: "+email]:[]),"","Por favor, confirmen disponibilidad y entrega."].join("\n");
     window.open("https://wa.me/"+waNumber+"?text="+encodeURIComponent(message),"_blank","noopener,noreferrer");
-  });
+ <!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <title>AromasArt | Catálogo de Perfumes</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 28px 16px;
+      text-align: center;
+      background: #1a1a1a;
+      border-bottom: 2px solid #c82032;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+      color: #e52b3c;
+      letter-spacing: 2px;
+    }
+
+    header p { color: #ddd; }
+
+    main {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    #busqueda {
+      width: 100%;
+      padding: 15px;
+      margin-bottom: 24px;
+      border: 1px solid #c82032;
+      border-radius: 10px;
+      background: #222;
+      color: white;
+      font-size: 16px;
+    }
+
+    #estado {
+      color: #ddd;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    #catalogo {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+      gap: 16px;
+    }
+
+    .producto {
+      overflow: hidden;
+      border: 1px solid #333;
+      border-radius: 12px;
+      background: #1d1d1d;
+      transition: transform .2s, border-color .2s;
+    }
+
+    .producto:hover {
+      transform: translateY(-4px);
+      border-color: #e52b3c;
+    }
+
+    .producto img {
+      width: 100%;
+      height: 190px;
+      padding: 8px;
+      object-fit: contain;
+      background: #f8f8f8;
+    }
+
+    .producto h3 {
+      padding: 0 10px;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .error {
+      padding: 20px;
+      color: #ff8b95;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    footer {
+      padding: 25px;
+      text-align: center;
+      color: #aaa;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>AromasArt</h1>
+    <p>Descubre tu próxima fragancia favorita</p>
+  </header>
+
+  <main>
+    <input
+      id="busqueda"
+      type="search"
+      placeholder="Buscar perfume por nombre..."
+      aria-label="Buscar perfumes"
+    >
+
+    <p id="estado">Cargando imágenes del catálogo...</p>
+    <section id="catalogo"></section>
+  </main>
+
+  <footer>© AromasArt · Catálogo de fragancias</footer>
+
+  <script>
+    // CAMBIA ESTOS DOS VALORES POR LOS DE TU REPOSITORIO
+    const PROPIETARIO = "TU_USUARIO_GITHUB";
+    const REPOSITORIO = "TU_REPOSITORIO";
+
+    // Ruta de las imágenes dentro del repositorio.
+    // Si están directamente en blottles, usa: "blottles"
+    const CARPETA = "blottles/.img";
+
+    const catalogo = document.getElementById("catalogo");
+    const estado = document.getElementById("estado");
+    const busqueda = document.getElementById("busqueda");
+
+    let perfumes = [];
+
+    function nombreBonito(nombre) {
+      return nombre
+        .replace(/\.[^.]+$/, "")
+        .replace(/[-_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    async function cargarImagenes() {
+      const url = `https://api.github.com/repos/${
+        encodeURIComponent(PROPIETARIO)
+      }/${encodeURIComponent(REPOSITORIO)}/contents/${
+        CARPETA.split("/").map(encodeURIComponent).join("/")
+      }`;
+
+      try {
+        const respuesta = await fetch(url);
+
+        if (!respuesta.ok) {
+          throw new Error(
+            "No se pudo acceder a la carpeta. Revisa el usuario, " +
+            "el repositorio y la ruta."
+          );
+        }
+
+        const archivos = await respuesta.json();
+
+        if (!Array.isArray(archivos)) {
+          throw new Error("La ruta no corresponde a una carpeta.");
+        }
+
+        perfumes = archivos.filter(archivo =>
+          archivo.type === "file" &&
+          /\.(jpe?g|png|webp|gif|avif)$/i.test(archivo.name)
+        );
+
+        mostrarPerfumes();
+
+        if (perfumes.length === 0) {
+          estado.textContent =
+            "No se encontraron imágenes en " + CARPETA +
+            ". Comprueba dónde subiste los archivos.";
+        }
+      } catch (error) {
+        estado.innerHTML = "";
+        const mensaje = document.createElement("div");
+        mensaje.className = "error";
+        mensaje.textContent =
+          error.message +
+          " Asegúrate de que el repositorio sea público y que la carpeta exista.";
+        estado.appendChild(mensaje);
+      }
+    }
+
+    function mostrarPerfumes() {
+      const texto = busqueda.value.trim().toLowerCase();
+
+      const encontrados = perfumes.filter(archivo =>
+        nombreBonito(archivo.name).toLowerCase().includes(texto)
+      );
+
+      catalogo.replaceChildren();
+
+      encontrados.forEach(archivo => {
+        const tarjeta = document.createElement("article");
+        tarjeta.className = "producto";
+
+        const imagen = document.createElement("img");
+        imagen.src = archivo.download_url;
+        imagen.alt = nombreBonito(archivo.name);
+        imagen.loading = "lazy";
+
+        const nombre = document.createElement("h3");
+        nombre.textContent = nombreBonito(archivo.name);
+
+        tarjeta.append(imagen, nombre);
+        catalogo.appendChild(tarjeta);
+      });
+
+      estado.textContent = encontrados.length
+        ? `${encontrados.length} imágenes encontradas`
+        : "No se encontraron perfumes con ese nombre.";
+    }
+
+    busqueda.addEventListener("input", mostrarPerfumes);
+    cargarImagenes();
+  </script>
+</body>
+</html> });
   showProfile();render();renderCart();
 })();
 </script>
